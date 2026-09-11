@@ -1,0 +1,2248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Nusantara Defender: Edu-Shooter Kebudayaan 3D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap');
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Poppins', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #0f172a;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .crosshair-cursor {
+            cursor: crosshair;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 32px;
+            height: 32px;
+            pointer-events: none;
+            z-index: 20;
+            transition: transform 0.05s ease;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #f59e0b;
+            border-radius: 8px;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.8)); }
+            50% { filter: drop-shadow(0 0 18px rgba(245, 158, 11, 1)); }
+        }
+        .glow-pulse {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes luxury-shimmer {
+            0% { background-position: -200% 0; box-shadow: 0 0 15px rgba(245, 158, 11, 0.4), inset 0 0 15px rgba(251, 191, 36, 0.2); }
+            50% { box-shadow: 0 0 35px rgba(245, 158, 11, 0.9), 0 0 50px rgba(251, 191, 36, 0.7), inset 0 0 25px rgba(254, 240, 138, 0.4); }
+            100% { background-position: 200% 0; box-shadow: 0 0 15px rgba(245, 158, 11, 0.4), inset 0 0 15px rgba(251, 191, 36, 0.2); }
+        }
+        .brand-shimmer {
+            background: linear-gradient(110deg, rgba(245,158,11,0.25) 0%, rgba(254,240,138,0.65) 45%, rgba(245,158,11,0.25) 90%);
+            background-size: 200% 100%;
+            animation: luxury-shimmer 3s infinite ease-in-out;
+        }
+
+        .touch-controls {
+            display: none;
+        }
+        @media (pointer: coarse) {
+            .touch-controls {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white overflow-hidden crosshair-cursor">
+
+    <div id="canvas-container"></div>
+
+    <div id="crosshair">
+        <svg viewBox="0 0 100 100" class="w-full h-full stroke-amber-400 fill-none stroke-[3]">
+            <circle cx="50" cy="50" r="35" stroke-dasharray="6 4" class="animate-spin" style="animation-duration: 12s;"></circle>
+            <circle cx="50" cy="50" r="6" class="fill-amber-400"></circle>
+            <line x1="50" y1="5" x2="50" y2="25"></line>
+            <line x1="50" y1="75" x2="50" y2="95"></line>
+            <line x1="5" y1="50" x2="25" y2="50"></line>
+            <line x1="75" y1="50" x2="95" y2="50"></line>
+        </svg>
+    </div>
+
+    <div id="hud-overlay" class="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-4 md:p-6">
+        <!-- Top HUD Bar -->
+        <div class="flex justify-between items-start w-full">
+            <!-- Health, Stats & Author Badge underneath -->
+            <div class="flex flex-col gap-2 pointer-events-auto">
+                <div class="glass-panel p-3.5 rounded-2xl flex flex-col gap-2 min-w-[200px] md:min-w-[240px]">
+                    <div>
+                        <div class="flex justify-between text-xs font-bold mb-1 text-slate-300">
+                            <span><i class="fa-solid fa-heart text-red-500 mr-1"></i> Nyawa Karakter</span>
+                            <span id="health-text">100 / 100</span>
+                        </div>
+                        <div class="w-full bg-slate-700/60 rounded-full h-3 overflow-hidden border border-slate-600/50">
+                            <div id="health-bar" class="bg-gradient-to-r from-red-600 to-emerald-500 h-full w-full transition-all duration-300"></div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-700/50">
+                        <span class="text-amber-400 font-semibold"><i class="fa-solid fa-map-location-dot mr-1"></i> Level: <span id="current-level-text" class="text-amber-300 font-bold">1 - Sumatra</span></span>
+                        <span class="text-emerald-400 font-bold text-sm"><i class="fa-solid fa-trophy mr-1"></i> Skor: <span id="score-text">0</span></span>
+                    </div>
+                    <div class="flex justify-between items-center text-[11px] pt-1 border-t border-slate-700/50 text-slate-300">
+                        <span><i class="fa-solid fa-shield-heart text-amber-400 mr-1"></i> Cadangan Nyawa:</span>
+                        <span id="lives-text" class="text-amber-300 font-extrabold">3</span>
+                    </div>
+                </div>
+
+                <!-- Author credit badge positioned right below the health & score HUD box -->
+                <div class="text-[10px] font-semibold text-amber-300 tracking-wide bg-slate-950/80 px-3 py-1.5 rounded-xl border border-amber-500/30 backdrop-blur-sm shadow-lg inline-flex items-center gap-1.5 w-max">
+                    <i class="fa-solid fa-pen-nib text-amber-400"></i> Dibuat oleh Septian Dwi Arnanda, S.Pd.
+                </div>
+            </div>
+
+            <!-- Collectible Coins & Beast Target Stats -->
+            <div class="flex gap-2 pointer-events-auto">
+                <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 shadow-lg border-amber-500/30">
+                    <div class="w-9 h-9 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center glow-pulse">
+                        <i class="fa-solid fa-coins text-amber-400 text-base"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Koin Adat</div>
+                        <div class="text-base font-extrabold text-amber-300"><span id="coins-count">0</span> / <span id="total-coins">3</span></div>
+                    </div>
+                </div>
+
+                <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 shadow-lg border-red-500/30">
+                    <div class="w-9 h-9 rounded-full bg-red-500/20 border border-red-400 flex items-center justify-center glow-pulse">
+                        <i class="fa-solid fa-skull text-red-400 text-base"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Misi Berburu</div>
+                        <div class="text-base font-extrabold text-red-300"><span id="beasts-killed-count">0</span> / <span id="target-beasts">3</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls & Material Trigger Buttons -->
+            <div class="flex gap-2 pointer-events-auto">
+                <button id="btn-toggle-sound" class="glass-panel hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 shadow-lg" title="Matikan/Hidupkan Musik">
+                    <i id="sound-icon" class="fa-solid fa-volume-high text-base"></i>
+                </button>
+                <button id="btn-upload-audio" onclick="document.getElementById('audio-file-input').click()" class="glass-panel hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 shadow-lg" title="Pilih File MP3 OK GASS">
+                    <i class="fa-solid fa-file-audio text-base"></i>
+                    <span class="hidden md:inline">Pilih MP3 OK GASS</span>
+                </button>
+                <input type="file" id="audio-file-input" accept="audio/*" class="hidden">
+                <button id="btn-open-material" class="glass-panel hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg">
+                    <i class="fa-solid fa-book-open text-base"></i>
+                    <span class="hidden md:inline">Ensiklopedia 38 Provinsi</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Controls Bar & Minimap -->
+        <div class="flex justify-between items-end w-full">
+            <div class="glass-panel p-3 rounded-xl text-[11px] text-slate-300 hidden md:block max-w-xs">
+                <div class="font-bold text-amber-400 mb-1"><i class="fa-solid fa-gamepad mr-1"></i> Kontrol Game:</div>
+                <div class="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                    <span><b>W,A,S,D</b> : Jalan</span>
+                    <span><b>Mouse</b> : Arah Bidik</span>
+                    <span><b>Klik Kiri</b> : Lempar Energi</span>
+                    <span><b>Spasi</b> : Lompat</span>
+                </div>
+            </div>
+
+            <!-- Minimap -->
+            <div class="glass-panel p-2 rounded-2xl border border-slate-700/60 pointer-events-auto relative">
+                <div class="text-[10px] font-bold text-center text-slate-400 mb-1 uppercase tracking-wider">Peta Arena</div>
+                <canvas id="minimap" width="120" height="120" class="rounded-xl bg-slate-950/80 border border-slate-800"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="touch-controls absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center justify-center gap-3 md:gap-4">
+        <div id="joystick-zone" class="w-24 h-24 md:w-28 md:h-28 bg-slate-800/80 rounded-full border-2 border-slate-600 flex items-center justify-center relative touch-none shadow-xl">
+            <div id="joystick-knob" class="w-10 h-10 md:w-12 md:h-12 bg-amber-500/80 rounded-full absolute shadow-lg"></div>
+        </div>
+        <button id="btn-mobile-jump" class="w-12 h-12 md:w-14 md:h-14 rounded-full bg-amber-600/80 border-2 border-amber-400 text-white font-bold text-base md:text-lg active:bg-amber-700 flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+            <i class="fa-solid fa-angles-up"></i>
+        </button>
+        <button id="btn-mobile-shoot" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-red-600/80 border-2 border-red-400 text-white font-bold text-lg md:text-xl active:bg-red-700 flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+            <i class="fa-solid fa-hand"></i>
+        </button>
+    </div>
+
+    <!-- Start Modal -->
+    <div id="start-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
+        <div class="glass-panel max-w-lg w-full rounded-3xl p-6 md:p-8 text-center border border-amber-500/40 relative overflow-hidden shadow-2xl">
+            <div class="inline-flex items-center gap-3 px-6 py-2.5 rounded-full brand-shimmer border-2 border-amber-400 mb-5 shadow-2xl transform hover:scale-105 transition-transform">
+                <i class="fa-solid fa-crown text-amber-300 text-lg animate-bounce"></i>
+                <span class="text-sm md:text-base font-black tracking-widest uppercase text-amber-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">TIAN DAGAMA PRESENTS</span>
+            </div>
+
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-500/30 to-orange-600/30 border-2 border-amber-400 flex items-center justify-center mx-auto mb-4 text-amber-400 text-4xl shadow-xl shadow-orange-500/20 glow-pulse">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+
+            <h1 class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-orange-400 to-amber-500 mb-4 tracking-tight drop-shadow-md">
+                Nusantara Defender
+            </h1>
+
+            <p class="text-xs md:text-sm text-slate-300 mb-6 leading-relaxed bg-slate-900/60 p-4 rounded-2xl border border-slate-700/60">
+                Petualangan Edukasi Kebudayaan Indonesia karya <b class="text-amber-300">SEPTIAN DWI ARNANDA, S.Pd.</b> Jelajahi <b>5 Wilayah Adat di Indonesia</b>, pelajari Ensiklopedia lengkap <b>38 Provinsi</b>, kumpulkan koin kebudayaan, jawab kuis tarian, rumah & pakaian adat, serta <b class="text-red-400">basmi hewan buas sesuai target misi tiap wilayah</b>!
+            </p>
+
+            <button id="btn-start-game" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-base transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl shadow-orange-500/30 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play text-lg"></i> Mulai Petualangan
+            </button>
+        </div>
+    </div>
+
+    <!-- Level Complete Modal -->
+    <div id="level-complete-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4 hidden">
+        <div class="glass-panel max-w-md w-full rounded-3xl p-6 md:p-8 text-center border border-emerald-500/40 relative shadow-2xl">
+            <div class="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center mx-auto mb-4 text-emerald-400 text-3xl">
+                <i class="fa-solid fa-map-location-dot"></i>
+            </div>
+            <h2 id="level-complete-title" class="text-2xl font-extrabold text-white mb-2">Wilayah Selesai!</h2>
+            <p id="level-complete-desc" class="text-xs text-slate-300 mb-6">Selamat! Anda telah menguasai kebudayaan wilayah ini.</p>
+
+            <button id="btn-next-level" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-sm transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                Jelajahi Level Selanjutnya (Musuh Lebih Buas!) <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div id="quiz-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 hidden">
+        <div class="glass-panel max-w-xl w-full rounded-3xl p-6 md:p-8 border border-amber-500/40 relative shadow-2xl">
+            <div class="flex items-center justify-between mb-4 border-b border-slate-700/60 pb-3">
+                <span id="quiz-region-badge" class="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-xs font-bold uppercase tracking-wider">
+                    <i class="fa-solid fa-map-pin mr-1"></i> Wilayah Sumatra
+                </span>
+                <span class="text-xs text-slate-400 font-semibold"><i class="fa-solid fa-award text-amber-400 mr-1"></i> Kuis Kebudayaan</span>
+            </div>
+
+            <h2 id="quiz-question" class="text-base md:text-lg font-bold text-white mb-6 leading-snug">
+                Pertanyaan kuis...
+            </h2>
+
+            <div id="quiz-options" class="grid grid-cols-1 gap-3 mb-6"></div>
+            <div id="quiz-feedback" class="hidden rounded-xl p-3.5 mb-4 text-xs font-semibold leading-relaxed"></div>
+
+            <button id="btn-quiz-continue" class="hidden w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition-all flex items-center justify-center gap-2">
+                Lanjutkan Petualangan <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Material Summary Modal (38 Provinces) -->
+    <div id="material-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4 hidden">
+        <div class="glass-panel max-w-4xl w-full max-h-[88vh] rounded-3xl p-6 md:p-8 border border-amber-500/30 flex flex-col relative shadow-2xl">
+            <div class="flex justify-between items-center pb-4 border-b border-slate-700/60 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-400 text-lg">
+                        <i class="fa-solid fa-book-atlas"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg md:text-xl font-bold text-white">Ensiklopedia 38 Provinsi Indonesia Lengkap</h2>
+                        <p class="text-xs text-slate-400">Adat, Rumah, Pakaian, Tarian, Senjata & Ciri Khas Seluruh Provinsi di Indonesia</p>
+                    </div>
+                </div>
+                <button id="btn-close-material" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scroll text-xs font-bold">
+                <button class="material-tab bg-amber-500 text-slate-950 px-4 py-2 rounded-xl transition-all whitespace-nowrap" data-target="sumatra">Sumatra (10 Prov)</button>
+                <button class="material-tab bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition-all whitespace-nowrap" data-target="jawa">Jawa & Bali (7 Prov)</button>
+                <button class="material-tab bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition-all whitespace-nowrap" data-target="kalimantan">Kalimantan (5 Prov)</button>
+                <button class="material-tab bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition-all whitespace-nowrap" data-target="sulawesi">Sulawesi (6 Prov)</button>
+                <button class="material-tab bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition-all whitespace-nowrap" data-target="nusa_tenggara">Nusa Tenggara (2 Prov)</button>
+                <button class="material-tab bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition-all whitespace-nowrap" data-target="maluku_papua">Maluku & Papua (8 Prov)</button>
+            </div>
+
+            <div id="material-content" class="overflow-y-auto custom-scroll flex-1 pr-2 space-y-4 text-xs md:text-sm text-slate-300 leading-relaxed"></div>
+        </div>
+    </div>
+
+    <!-- Game Over Menu Modal (Restart Level or Choose Completed/Unlocked Level) -->
+    <div id="game-over-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-lg p-4 hidden">
+        <div class="glass-panel max-w-md w-full rounded-3xl p-6 md:p-8 text-center border border-red-500/40 relative shadow-2xl">
+            <div class="w-20 h-20 rounded-full bg-red-500/20 border-2 border-red-400 flex items-center justify-center mx-auto mb-4 text-red-400 text-4xl glow-pulse">
+                <i class="fa-solid fa-heart-crack"></i>
+            </div>
+            <h2 class="text-2xl font-extrabold text-white mb-2">Nyawa Karakter Habis!</h2>
+            <p class="text-xs text-slate-300 mb-5">Anda telah dikalahkan oleh hewan buas. Ulangi level ini atau pilih level yang sudah terbuka:</p>
+
+            <div class="space-y-3 mb-4">
+                <button id="btn-restart-current-level" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-sm transition-all shadow-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> Ulangi Level Ini
+                </button>
+            </div>
+
+            <div class="text-[11px] font-bold text-amber-300 text-left mb-2 uppercase tracking-wider"><i class="fa-solid fa-map mr-1"></i> Pilih Level yang Sudah Terbuka:</div>
+            <div id="unlocked-levels-container" class="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto custom-scroll pr-1 mb-5">
+                <!-- Dynamic level buttons inserted via JS -->
+            </div>
+
+            <button id="btn-gameover-home" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold text-xs transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-house"></i> Kembali ke Beranda Utama
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Victory Modal -->
+    <div id="game-end-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-lg p-4 hidden">
+        <div class="glass-panel max-w-md w-full rounded-3xl p-6 md:p-8 text-center border border-amber-500/40 relative shadow-2xl">
+            <div id="end-icon-bg" class="w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center mx-auto mb-4 text-emerald-400 text-4xl glow-pulse">
+                <i id="end-icon" class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 id="end-title" class="text-2xl font-extrabold text-white mb-2">Selamat! Anda Telah Menyelesaikan Game!</h2>
+            <p id="end-message" class="text-xs text-slate-300 mb-5">Luar biasa! Anda telah menaklukkan seluruh 5 wilayah adat di Nusantara dan menguasai ensiklopedia kebudayaan Indonesia dengan gemilang.</p>
+
+            <div class="bg-slate-800/60 rounded-2xl p-3.5 border border-slate-700/60 mb-4 space-y-1.5 text-xs">
+                <div class="flex justify-between text-slate-300">
+                    <span>Total Koin Dikumpulkan:</span>
+                    <span id="end-coins" class="font-bold text-amber-400">15 / 15</span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                    <span>Skor Akhir Kebudayaan:</span>
+                    <span id="end-score" class="font-bold text-emerald-400">1000</span>
+                </div>
+            </div>
+
+            <div class="text-[11px] font-bold text-amber-300 text-left mb-2 uppercase tracking-wider"><i class="fa-solid fa-map mr-1"></i> Ulangi Level yang Telah Terbuka:</div>
+            <div id="end-unlocked-levels-container" class="grid grid-cols-1 gap-2 max-h-36 overflow-y-auto custom-scroll pr-1 mb-4">
+                <!-- Dynamic level buttons inserted via JS -->
+            </div>
+
+            <div class="space-y-2">
+                <button id="btn-restart-game" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> Main Lagi dari Level 1
+                </button>
+                <button id="btn-return-home" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 font-extrabold text-xs transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-house"></i> Kembali ke Beranda (Home)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio BGM -->
+    <audio id="bgm-audio" loop preload="auto">
+        <source src="https://ia801503.us.archive.org/15/items/dj-tabrak-tabrak-masuk-oke-gas-2/DJ%20TABRAK-TABRAK%20MASUK%20%28Oke%20Gas%202%29%20-%20Richard%20Jersey.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        const sound = {
+            ctx: null,
+            muted: false,
+            bgmAudio: null,
+            init() {
+                if (!this.bgmAudio) {
+                    this.bgmAudio = document.getElementById('bgm-audio');
+                }
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            toggleSound() {
+                this.init();
+                this.muted = !this.muted;
+                const icon = document.getElementById('sound-icon');
+                if (this.muted) {
+                    if (icon) icon.className = 'fa-solid fa-volume-xmark text-base text-red-400';
+                    this.stopBGM();
+                } else {
+                    if (icon) icon.className = 'fa-solid fa-volume-high text-base text-amber-300';
+                    this.startBGM();
+                }
+            },
+            startBGM() {
+                this.init();
+                if (this.muted || !this.bgmAudio) return;
+                this.bgmAudio.volume = 0.7;
+                const playPromise = this.bgmAudio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => {
+                        console.log("Play BGM waiting for user interaction:", err);
+                    });
+                }
+            },
+            stopBGM() {
+                if (this.bgmAudio) {
+                    this.bgmAudio.pause();
+                }
+            },
+            playTone(freq, type, duration, vol = 0.1) {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            },
+            playCoin() {
+                this.playTone(880, 'sine', 0.1, 0.2);
+                setTimeout(() => this.playTone(1760, 'sine', 0.25, 0.2), 80);
+            },
+            playHit() {
+                this.playTone(150, 'square', 0.1, 0.15);
+            },
+            playQuizCorrect() {
+                this.playTone(523.25, 'sine', 0.12, 0.2);
+                setTimeout(() => this.playTone(659.25, 'sine', 0.12, 0.2), 100);
+                setTimeout(() => this.playTone(783.99, 'sine', 0.25, 0.2), 200);
+            },
+            playQuizWrong() {
+                this.playTone(300, 'sawtooth', 0.15, 0.2);
+                setTimeout(() => this.playTone(200, 'sawtooth', 0.25, 0.2), 150);
+            }
+        };
+
+        const QUIZ_DATABASE = [
+            {
+                region: 'Sumatra',
+                question: 'Rumah adat khas Sumatera Barat yang memiliki atap melengkung runcing seperti tanduk kerbau disebut...',
+                options: ['Rumah Gadang', 'Rumah Bolon', 'Rumah Limas', 'Rumah Krong Bade'],
+                correct: 0,
+                explanation: 'Rumah Gadang adalah rumah adat Suku Minangkabau di Sumatera Barat dengan atap runcing khas bergelar Gonjong.'
+            },
+            {
+                region: 'Sumatra',
+                question: 'Tarian asal Aceh yang terkenal dengan gerakan tepuk dada dan paha serempak tanpa diiringi alat musik adalah...',
+                options: ['Tari Tor-Tor', 'Tari Saman', 'Tari Piring', 'Tari Zapin'],
+                correct: 1,
+                explanation: 'Tari Saman diciptakan oleh Syekh Saman dari suku Gayo, Aceh. Tarian ini diakui UNESCO sebagai Warisan Budaya Takbenda.'
+            },
+            {
+                region: 'Sumatra',
+                question: 'Kain tenun sakral khas Suku Batak Sumatera Utara yang biasa digunakan dalam upacara adat kehidupan adalah...',
+                options: ['Kain Songket', 'Kain Ulos', 'Kain Batik', 'Kain Tapis'],
+                correct: 1,
+                explanation: 'Kain Ulos adalah kain tenun khas Batak, Sumatera Utara yang menyimbolkan ikatan kasih sayang dan perlindungan.'
+            },
+            {
+                region: 'Kalimantan',
+                question: 'Rumah adat panggung raksasa khas Suku Dayak Kalimantan yang dapat dihuni puluhan keluarga adalah...',
+                options: ['Rumah Lamin / Betang', 'Rumah Joglo', 'Rumah Tongkonan', 'Rumah Honai'],
+                correct: 0,
+                explanation: 'Rumah Lamin atau Rumah Betang adalah rumah adat panggung khas Suku Dayak Kalimantan yang berukuran raksasa.'
+            },
+            {
+                region: 'Kalimantan',
+                question: 'Tarian khas Suku Dayak Kalimantan yang menggambarkan keanggunan burung sakral dan ketangkasan perang adalah...',
+                options: ['Tari Kancet Papatai / Enggang', 'Tari Saman', 'Tari Jaipong', 'Tari Kecak'],
+                correct: 0,
+                explanation: 'Tari Enggang / Kancet Papatai menggambarkan keagungan burung Enggang dan keberanian ksatria Dayak.'
+            },
+            {
+                region: 'Kalimantan',
+                question: 'Senjata tradisional tajam khas Suku Dayak Kalimantan yang diukir indah dan bernilai kebudayaan tinggi adalah...',
+                options: ['Mandau', 'Keris', 'Rencong', 'Kujang'],
+                correct: 0,
+                explanation: 'Mandau adalah senjata tradisional khas Suku Dayak Kalimantan yang kaya akan ukiran seni budaya.'
+            },
+            {
+                region: 'Jawa',
+                question: 'Rumah adat tradisional Jawa Tengah dan DIY yang memiliki tiang utama (Soko Guru) dan atap tajug adalah...',
+                options: ['Rumah Kebaya', 'Rumah Joglo', 'Rumah Baduy', 'Candi Bentar'],
+                correct: 1,
+                explanation: 'Rumah Joglo terkenal dengan struktur atap tajug trapesium yang disangga oleh empat tiang utama bernama Soko Guru.'
+            },
+            {
+                region: 'Jawa',
+                question: 'Tarian energik dan dinamis khas Sunda (Jawa Barat) yang diiringi musik kendang dan gong adalah...',
+                options: ['Tari Jaipong', 'Tari Serimpi', 'Tari Reog', 'Tari Bedhaya'],
+                correct: 0,
+                explanation: 'Tari Jaipong dikembangkan oleh H. Suanda dan Gugum Gumbira, merupakan seni tari pergaulan khas Jawa Barat.'
+            },
+            {
+                region: 'Jawa',
+                question: 'Senjata tradisional khas Jawa Barat yang dipercaya sebagai pusaka dan lambang identitas masyarakat Sunda adalah...',
+                options: ['Keris', 'Rencong', 'Kujang', 'Golok'],
+                correct: 2,
+                explanation: 'Kujang adalah senjata tradisional khas masyarakat Sunda yang memiliki nilai estetika dan sakral tinggi.'
+            },
+            {
+                region: 'Sulawesi',
+                question: 'Rumah adat suku Toraja di Sulawesi Selatan yang memiliki atap melengkung menyerupai perahu adalah...',
+                options: ['Rumah Boyang', 'Rumah Tongkonan', 'Rumah Laikas', 'Rumah Souraja'],
+                correct: 1,
+                explanation: 'Rumah Tongkonan dihiasi tanduk kerbau di depan sebagai lambang status sosial dan kehormatan keluarga.'
+            },
+            {
+                region: 'Sulawesi',
+                question: 'Pakaian adat khas Bugis/Makassar yang terbuat dari kain kasa/muslin ringan dan merupakan salah satu busana tertua adalah...',
+                options: ['Baju Bodo', 'Baju Pokko', 'Baju Cele', 'Payas Agung'],
+                correct: 0,
+                explanation: 'Baju Bodo adalah busana tradisional wanita Suku Bugis dan Makassar yang memiliki warna cerah menandakan usia/status.'
+            },
+            {
+                region: 'Sulawesi',
+                question: 'Alat musik perkusi bernada dari kayu khas Minahasa (Sulawesi Utara) yang dimainkan dengan cara dipukul adalah...',
+                options: ['Sasando', 'Kolintang', 'Tifa', 'Sape'],
+                correct: 1,
+                explanation: 'Kolintang terbuat dari kayu lokal yang ringan namun kuat serta menghasilkan nada diatonis indah.'
+            },
+            {
+                region: 'Papua & NTT',
+                question: 'Rumah adat khas Suku Dani di daerah pegunungan Papua yang berbentuk melingkar dengan atap jerami adalah...',
+                options: ['Rumah Baileo', 'Rumah Honai', 'Rumah Musalaki', 'Rumah Jew'],
+                correct: 1,
+                explanation: 'Rumah Honai dirancang melingkar dan beratap jerami tebal untuk menahan hawa dingin pegunungan Papua.'
+            },
+            {
+                region: 'Papua & NTT',
+                question: 'Alat musik petik tradisional asal Pulau Rote, Nusa Tenggara Timur yang dibuat dari daun lontar adalah...',
+                options: ['Tifa', 'Sasando', 'Gamelan', 'Angklung'],
+                correct: 1,
+                explanation: 'Sasando adalah alat musik petik unik NTT yang menggunakan tabung bambu dan resonator terbuat dari anyaman daun lontar.'
+            },
+            {
+                region: 'Papua & NTT',
+                question: 'Alat musik pukul berbentuk tabung kayu diukir dengan membran kulit binatang khas Papua dan Maluku adalah...',
+                options: ['Tifa', 'Triton', 'Sape', 'Calung'],
+                correct: 0,
+                explanation: 'Tifa adalah alat musik tradisional ritmis khas masyarakat Papua dan Maluku yang dimainkan saat tarian adat.'
+            }
+        ];
+
+        const SUMMARY_DATA = {
+            sumatra: `
+                <div class="space-y-4">
+                    <div class="bg-slate-800/90 p-4 rounded-2xl border border-amber-500/30">
+                        <h3 class="text-amber-400 font-extrabold text-base mb-2 flex items-center gap-2"><i class="fa-solid fa-monument"></i> 10 Provinsi di Pulau Sumatra</h3>
+                        <p class="text-slate-300 mb-3 text-xs leading-relaxed">Pulau gerbang barat Indonesia yang kaya akan sejarah kerajaan maritim (Sriwijaya), perdagangan rempah, dan budaya Melayu yang kuat.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">1. Aceh</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Aceh, Gayo, Alas. <b>Rumah:</b> Krong Bade. <b>Tari:</b> Saman, Seudati. <b>Pakaian:</b> Ulee Balang. <b>Senjata:</b> Rencong.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">2. Sumatera Utara</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Batak (Toba, Karo, Mandailing), Nias. <b>Rumah:</b> Bolon. <b>Tari:</b> Tor-Tor. <b>Pakaian:</b> Ulos. <b>Senjata:</b> Piso Surrit.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">3. Sumatera Barat</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Minangkabau, Mentawai. <b>Rumah:</b> Rumah Gadang. <b>Tari:</b> Piring, Randai. <b>Pakaian:</b> Bundo Kanduang. <b>Senjata:</b> Karih.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">4. Riau</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Melayu, Riau. <b>Rumah:</b> Selaso Jatuh Kembar. <b>Tari:</b> Zapin. <b>Pakaian:</b> Melayu Riau. <b>Senjata:</b> Pedang Jenawi.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">5. Kepulauan Riau</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Melayu Kepri. <b>Rumah:</b> Belah Bubung. <b>Tari:</b> Persembahan. <b>Pakaian:</b> Teluk Belanga. <b>Senjata:</b> Badik Tumbuk Lada.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">6. Jambi</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Melayu Jambi, Kerinci. <b>Rumah:</b> Panggung Panjang. <b>Tari:</b> Sekapur Sirih. <b>Pakaian:</b> Kurung Tanggung. <b>Senjata:</b> Keris Siginjai.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">7. Bengkulu</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Rejang, Lebong, Serawai. <b>Rumah:</b> Bubungan Lima. <b>Tari:</b> Andun, Bidadari Teminang Anak. <b>Pakaian:</b> Rejang. <b>Senjata:</b> Kuduk.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">8. Sumatera Selatan</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Palembang, Komering, Ogan. <b>Rumah:</b> Rumah Limas. <b>Tari:</b> Gending Sriwijaya. <b>Pakaian:</b> Aisan Gede. <b>Senjata:</b> Tombak Trisula.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">9. Kepulauan Bangka Belitung</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Melayu Bangka, Belitung. <b>Rumah:</b> Rakit / Limas. <b>Tari:</b> Campak. <b>Pakaian:</b> Paksian. <b>Senjata:</b> Parang Bangka.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">10. Lampung</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Lampung (Saibatin & Pepadun). <b>Rumah:</b> Nuwow Sesat. <b>Tari:</b> Sigeh Penguten. <b>Pakaian:</b> Tapis Lampung. <b>Senjata:</b> Badik Lampung.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            jawa: `
+                <div class="space-y-4">
+                    <div class="bg-slate-800/90 p-4 rounded-2xl border border-amber-500/30">
+                        <h3 class="text-amber-400 font-extrabold text-base mb-2 flex items-center gap-2"><i class="fa-solid fa-landmark"></i> 7 Provinsi di Jawa & Bali</h3>
+                        <p class="text-slate-300 mb-3 text-xs leading-relaxed">Pusat peradaban agraris, kesenian adiluhung, kraton bersejarah, serta pariwisata dunia yang sangat memukau.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">11. DKI Jakarta</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Betawi. <b>Rumah:</b> Rumah Kebaya. <b>Tari:</b> Yapong, Topeng Betawi. <b>Pakaian:</b> Sadariah & Encim. <b>Senjata:</b> Golok Betawi.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">12. Jawa Barat</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Sunda. <b>Rumah:</b> Kasepuhan / Imah Baduy. <b>Tari:</b> Jaipong, Merak. <b>Pakaian:</b> Pangsi & Kebaya Sunda. <b>Senjata:</b> Kujang.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">13. Banten</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Sunda Banten, Baduy, Jawara. <b>Rumah:</b> Rumah Baduy. <b>Tari:</b> Rampak Bedug. <b>Pakaian:</b> Suku Baduy. <b>Senjata:</b> Golok Ciomas.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">14. Jawa Tengah</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Jawa. <b>Rumah:</b> Joglo. <b>Tari:</b> Serimpi, Gambyong. <b>Pakaian:</b> Jawi Jangkep. <b>Senjata:</b> Keris.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">15. D.I. Yogyakarta</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Jawa Kraton. <b>Rumah:</b> Joglo Kraton. <b>Tari:</b> Bedhaya Ketawang. <b>Pakaian:</b> Kasatriyan / Surjan. <b>Senjata:</b> Keris Yogyakarta.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">16. Jawa Timur</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Jawa, Madura, Osing, Tengger. <b>Rumah:</b> Joglo Situbondo. <b>Tari:</b> Remo, Gandrung. <b>Pakaian:</b> Pesa'an Madura. <b>Senjata:</b> Clurit.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">17. Bali</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Bali. <b>Rumah:</b> Gapura Candi Bentar / Bale Manten. <b>Tari:</b> Kecak, Legong, Pendet. <b>Pakaian:</b> Payas Agung. <b>Senjata:</b> Keris Bali.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            kalimantan: `
+                <div class="space-y-4">
+                    <div class="bg-slate-800/90 p-4 rounded-2xl border border-amber-500/30">
+                        <h3 class="text-amber-400 font-extrabold text-base mb-2 flex items-center gap-2"><i class="fa-solid fa-tree"></i> 5 Provinsi di Kalimantan (Borneo)</h3>
+                        <p class="text-slate-300 mb-3 text-xs leading-relaxed">Pulau berhutan hujan tropis purba dengan peradaban sungai yang kuat, suku Dayak, dan Banjar.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">18. Kalimantan Barat</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Dayak, Melayu, Tionghoa. <b>Rumah:</b> Rumah Radakng / Lamin. <b>Tari:</b> Monong. <b>Pakaian:</b> King Baba & King Bibinge. <b>Senjata:</b> Mandau.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">19. Kalimantan Tengah</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Dayak Ngaju, Ma'anyan. <b>Rumah:</b> Rumah Betang. <b>Tari:</b> Balean Dadas. <b>Pakaian:</b> Upak Nyamu. <b>Senjata:</b> Mandau & Sumpit.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">20. Kalimantan Selatan</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Banjar, Dayak Meratus. <b>Rumah:</b> Bubungan Tinggi. <b>Tari:</b> Baksa Kembang. <b>Pakaian:</b> Bagajah Gamuling. <b>Senjata:</b> Keris Buaya Gagang.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">21. Kalimantan Timur</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Dayak Kenyah, Kutai, Paser. <b>Rumah:</b> Rumah Lamin. <b>Tari:</b> Kancet Papatai / Enggang. <b>Pakaian:</b> Ta'a & Sapei Sapaq. <b>Senjata:</b> Mandau Kaltim.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">22. Kalimantan Utara</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Tidung, Lundayeh, Bulungan. <b>Rumah:</b> Rumah Baloy. <b>Tari:</b> Jepen. <b>Pakaian:</b> Sutan & Kurung. <b>Senjata:</b> Gayang.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            sulawesi: `
+                <div class="space-y-4">
+                    <div class="bg-slate-800/90 p-4 rounded-2xl border border-amber-500/30">
+                        <h3 class="text-amber-400 font-extrabold text-base mb-2 flex items-center gap-2"><i class="fa-solid fa-house-chimney-window"></i> 6 Provinsi di Sulawesi</h3>
+                        <p class="text-slate-300 mb-3 text-xs leading-relaxed">Pulau unik berbentuk huruf K dengan pelaut ulung Phinisi, kebudayaan megah Toraja, serta Minahasa.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">23. Sulawesi Utara</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Minahasa, Bolaang Mongondow, Sangihe. <b>Rumah:</b> Walewangko. <b>Tari:</b> Maengket, Kabasaran. <b>Pakaian:</b> Laku Tepu. <b>Senjata:</b> Bara Sangihe.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">24. Gorontalo</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Gorontalo (Hulontalo). <b>Rumah:</b> Rumah Dulohupa. <b>Tari:</b> Polo-Palo. <b>Pakaian:</b> Biliu & Makuta. <b>Senjata:</b> Wamilo.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">25. Sulawesi Tengah</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Kaili, Lore, Pamona, Tolaki. <b>Rumah:</b> Rumah Souraja. <b>Tari:</b> Lumense. <b>Pakaian:</b> Kulit Kayu Inodo. <b>Senjata:</b> Sundu.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">26. Sulawesi Barat</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Mandar, Toraja, Kalumpang. <b>Rumah:</b> Rumah Boyang. <b>Tari:</b> Patron. <b>Pakaian:</b> Pakaian Mandar. <b>Senjata:</b> Badik Sulbar.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">27. Sulawesi Selatan</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Bugis, Makassar, Toraja, Mandar. <b>Rumah:</b> Tongkonan / Balla. <b>Tari:</b> Kipas Pakarena. <b>Pakaian:</b> Baju Bodo. <b>Senjata:</b> Badik.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">28. Sulawesi Tenggara</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Tolaki, Buton, Muna, Wakatobi. <b>Rumah:</b> Rumah Laikas. <b>Tari:</b> Lulo. <b>Pakaian:</b> Pakaian Tolaki. <b>Senjata:</b> Keris Buton.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            nusa_tenggara: `
+                <div class="space-y-4">
+                    <div class="bg-slate-800/90 p-4 rounded-2xl border border-amber-500/30">
+                        <h3 class="text-amber-400 font-extrabold text-base mb-2 flex items-center gap-2"><i class="fa-solid fa-mountain-sun"></i> 2 Provinsi di Nusa Tenggara</h3>
+                        <p class="text-slate-300 mb-3 text-xs leading-relaxed">Kepulauan dengan sabana eksotis, habitat Komodo, perkampungan adat Wae Rebo, dan tenun ikat.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">29. Nusa Tenggara Barat (NTB)</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Sasak, Samawa, Mbojo. <b>Rumah:</b> Dalam Loka / Bale Sasak. <b>Tari:</b> Gandrung Sasak. <b>Pakaian:</b> Lambung & Pegon. <b>Senjata:</b> Keris Sasak.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">30. Nusa Tenggara Timur (NTT)</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Manggarai, Sumba, Rote, Timor, Flores. <b>Rumah:</b> Mbaru Niang / Musalaki. <b>Tari:</b> Caci. <b>Pakaian:</b> Tenun Ikat NTT & Ti'i Langga. <b>Senjata:</b> Sayer / Parang.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            maluku_papua: `
+                <div class="space-y-4">
+                    <div class="bg-slate-800/90 p-4 rounded-2xl border border-amber-500/30">
+                        <h3 class="text-amber-400 font-extrabold text-base mb-2 flex items-center gap-2"><i class="fa-solid fa-campground"></i> 8 Provinsi di Maluku & Papua</h3>
+                        <p class="text-slate-300 mb-3 text-xs leading-relaxed">Kepulauan rempah-rempah sejarah serta Tanah Cendrawasih dengan keanekaragaman suku pedalaman pegunungan.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">31. Maluku</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Ambon, Kei, Tanimbar, Seram. <b>Rumah:</b> Rumah Baileo. <b>Tari:</b> Cakalele, Lenso. <b>Pakaian:</b> Baju Cele. <b>Senjata:</b> Parang Salawaku.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">32. Maluku Utara</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Ternate, Tidore, Halmahera. <b>Rumah:</b> Rumah Sasadu. <b>Tari:</b> Lenso Halmahera. <b>Pakaian:</b> Kie Raha. <b>Senjata:</b> Suli.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">33. Papua</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Tabi, Saireri, Biak. <b>Rumah:</b> Kariwari. <b>Tari:</b> Yospan. <b>Pakaian:</b> Holim & Rok Sali. <b>Senjata:</b> Panah & Busur.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">34. Papua Barat</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Arfak, Fakfak, Kaimana. <b>Rumah:</b> Kaki Seribu. <b>Tari:</b> Suanggi. <b>Pakaian:</b> Suku Arfak. <b>Senjata:</b> Mandau Papua.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">35. Papua Selatan</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Asmat, Mappi, Anim Ha. <b>Rumah:</b> Rumah Jew (Asmat). <b>Tari:</b> Tifa. <b>Pakaian:</b> Atribut Asmat & Noken. <b>Senjata:</b> Tombak & Panah.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">36. Papua Tengah</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Mee, Moni, Amungme. <b>Rumah:</b> Honai Tinggi. <b>Tari:</b> Perang Adat. <b>Pakaian:</b> Koteka & Penutup Kepala. <b>Senjata:</b> Busur Panah.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">37. Papua Pegunungan</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Dani, Lani, Yali. <b>Rumah:</b> Honai Lembah Baliem. <b>Tari:</b> Waa. <b>Pakaian:</b> Koteka & Bulu Burung. <b>Senjata:</b> Busur & Panah Tradisional.</p>
+                            </div>
+                            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                                <span class="text-amber-300 font-bold block mb-1">38. Papua Barat Daya</span>
+                                <p class="text-slate-300"><b>Adat/Suku:</b> Maybrat, Raja Ampat, Moi. <b>Rumah:</b> Panggung Pesisir Raja Ampat. <b>Tari:</b> Bintuni. <b>Pakaian:</b> Pakaian Pesisir. <b>Senjata:</b> Parang Tradisional.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `
+        };
+
+        const LEVEL_CONFIGS = [
+            {
+                level: 1,
+                name: 'Sumatra - Hutan Hujan Tropis',
+                regionKey: 'sumatra',
+                skyColor: 0x38bdf8,
+                fogColor: 0x15803d,
+                groundColor: 0x166534,
+                grassAccent: 'rgba(34, 197, 94, 0.45)',
+                mountainColor: 0x14532d,
+                quizzes: QUIZ_DATABASE.filter(q => q.region === 'Sumatra'),
+                enemyCount: 20,
+                enemySpeed: 0.05,
+                enemyDamage: 0.3,
+                enemyHealth: 50,
+                beastTarget: 3,
+                beastTypes: [
+                    { type: 'blue_horse', color: 0x0284c7, name: 'Lego Kuda Sumatra' },
+                    { type: 'tiger', color: 0xeab308, name: 'Voxel Harimau' }
+                ]
+            },
+            {
+                level: 2,
+                name: 'Kalimantan - Rimba Borneo & Dayak',
+                regionKey: 'kalimantan',
+                skyColor: 0x0ea5e9,
+                fogColor: 0x16a34a,
+                groundColor: 0x15803d,
+                grassAccent: 'rgba(74, 222, 128, 0.45)',
+                mountainColor: 0x166534,
+                quizzes: QUIZ_DATABASE.filter(q => q.region === 'Kalimantan'),
+                enemyCount: 22,
+                enemySpeed: 0.09,
+                enemyDamage: 0.5,
+                enemyHealth: 65,
+                beastTarget: 5,
+                beastTypes: [
+                    { type: 'blue_horse', color: 0x0284c7, name: 'Lego Pet Borneo' },
+                    { type: 'boar', color: 0x334155, name: 'Voxel Wild Beast' }
+                ]
+            },
+            {
+                level: 3,
+                name: 'Sulawesi - Pegunungan & Toraja',
+                regionKey: 'sulawesi',
+                skyColor: 0x0284c7,
+                fogColor: 0x38bdf8,
+                groundColor: 0x0d9488,
+                grassAccent: 'rgba(45, 212, 191, 0.45)',
+                mountainColor: 0x0f766e,
+                quizzes: QUIZ_DATABASE.filter(q => q.region === 'Sulawesi'),
+                enemyCount: 24,
+                enemySpeed: 0.13,
+                enemyDamage: 0.7,
+                enemyHealth: 80,
+                beastTarget: 8,
+                beastTypes: [
+                    { type: 'blue_horse', color: 0x0ea5e9, name: 'Lego Pet Toraja' },
+                    { type: 'anoa', color: 0x334155, name: 'Voxel Anoa Sulawesi' }
+                ]
+            },
+            {
+                level: 4,
+                name: 'Jawa - Pedesaan & Candi Klasik',
+                regionKey: 'jawa',
+                skyColor: 0xfb923c,
+                fogColor: 0xfdba74,
+                groundColor: 0x854d0e,
+                grassAccent: 'rgba(250, 204, 21, 0.45)',
+                mountainColor: 0x78350f,
+                quizzes: QUIZ_DATABASE.filter(q => q.region === 'Jawa'),
+                enemyCount: 26,
+                enemySpeed: 0.18,
+                enemyDamage: 1.0,
+                enemyHealth: 95,
+                beastTarget: 12,
+                beastTypes: [
+                    { type: 'pink_pig', color: 0xf472b6, name: 'Lego Babi Merah Muda' },
+                    { type: 'boar', color: 0x475569, name: 'Voxel Babi Hutan' }
+                ]
+            },
+            {
+                level: 5,
+                name: 'Papua & NTT - Sabana & Jayawijaya',
+                regionKey: 'papua',
+                skyColor: 0x6366f1,
+                fogColor: 0xc7d2fe,
+                groundColor: 0xca8a04,
+                grassAccent: 'rgba(253, 224, 71, 0.45)',
+                mountainColor: 0x475569,
+                quizzes: QUIZ_DATABASE.filter(q => q.region === 'Papua & NTT'),
+                enemyCount: 30,
+                enemySpeed: 0.24,
+                enemyDamage: 1.4,
+                enemyHealth: 120,
+                beastTarget: 15,
+                beastTypes: [
+                    { type: 'komodo', color: 0x15803d, name: 'Voxel Komodo Dragon' },
+                    { type: 'pink_pig', color: 0xf472b6, name: 'Lego Pet Sabana' }
+                ]
+            }
+        ];
+
+        let scene, camera, renderer, sunLight;
+        let currentLevelIndex = 0;
+        let maxUnlockedLevelIndex = 0;
+        let beastsKilledInLevel = 0;
+        let currentQuizCoin = null;
+
+        let player = {
+            mesh: null,
+            position: new THREE.Vector3(0, 0, 0),
+            vy: 0,
+            isJumping: false,
+            gravity: 0.015,
+            jumpForce: 0.38,
+            health: 100,
+            score: 0,
+            coinsCollected: 0,
+            speed: 0.24,
+            leftArm: null,
+            rightArm: null,
+            leftLeg: null,
+            rightLeg: null,
+            walkCycle: 0,
+            isThrowing: false,
+            throwAnimTimer: 0,
+            throwSide: 0,
+            continuesRemaining: 3,
+            isInvulnerable: false,
+            invulnerableTimer: 0
+        };
+
+        let keys = { w: false, a: false, s: false, d: false, space: false };
+        let mousePos = new THREE.Vector2();
+        let raycaster = new THREE.Raycaster();
+        let aimTargetPoint = new THREE.Vector3();
+
+        let levelObjectsGroup = new THREE.Group();
+        let coins = [];
+        let enemies = [];
+        let projectiles = [];
+        let hitParticles = [];
+        let colliders = [];
+
+        let isGamePaused = true;
+
+        function initEngine() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            scene.add(levelObjectsGroup);
+
+            const ambientLight = new THREE.AmbientLight(0xfff7ed, 0.6);
+            scene.add(ambientLight);
+
+            sunLight = new THREE.DirectionalLight(0xfffbeb, 1.2);
+            sunLight.position.set(80, 120, 60);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 300;
+            const d = 100;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            const sunGeo = new THREE.SphereGeometry(12, 32, 32);
+            const sunMat = new THREE.MeshBasicMaterial({ color: 0xfde047, fog: false });
+            const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+            sunMesh.position.copy(sunLight.position);
+            scene.add(sunMesh);
+
+            buildPlayer();
+            loadLevel(0);
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', e => handleKey(e, true));
+            window.addEventListener('keyup', e => handleKey(e, false));
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('click', onPlayerThrow);
+
+            setupTouchControls();
+        }
+
+        function buildPlayer() {
+            const playerGroup = new THREE.Group();
+
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.3 });
+            const torsoMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 });
+            const armMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.3 });
+            const legMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.4 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2 });
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3 });
+
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.3, 0.6), torsoMat);
+            torso.position.y = 1.45;
+            torso.castShadow = true;
+            playerGroup.add(torso);
+
+            const belt = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.22, 0.65), redMat);
+            belt.position.y = 0.9;
+            torso.add(belt);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.85, 0.85), headMat);
+            head.position.y = 2.5;
+            head.castShadow = true;
+            playerGroup.add(head);
+
+            const eyeGeo = new THREE.BoxGeometry(0.12, 0.16, 0.05);
+            const eyeL = new THREE.Mesh(eyeGeo, darkMat);
+            eyeL.position.set(-0.2, 2.55, -0.43);
+            playerGroup.add(eyeL);
+
+            const eyeR = new THREE.Mesh(eyeGeo, darkMat);
+            eyeR.position.set(0.2, 2.55, -0.43);
+            playerGroup.add(eyeR);
+
+            const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.05), darkMat);
+            mouth.position.set(0, 2.38, -0.43);
+            playerGroup.add(mouth);
+
+            const headband = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.18, 0.9), redMat);
+            headband.position.set(0, 2.85, 0);
+            playerGroup.add(headband);
+
+            const armGeo = new THREE.BoxGeometry(0.4, 1.2, 0.4);
+            const leftArmGroup = new THREE.Group();
+            leftArmGroup.position.set(-0.85, 2.0, 0);
+            const leftArmMesh = new THREE.Mesh(armGeo, armMat);
+            leftArmMesh.position.y = -0.5;
+            leftArmMesh.castShadow = true;
+            leftArmGroup.add(leftArmMesh);
+            playerGroup.add(leftArmGroup);
+            player.leftArm = leftArmGroup;
+
+            const rightArmGroup = new THREE.Group();
+            rightArmGroup.position.set(0.85, 2.0, 0);
+            const rightArmMesh = new THREE.Mesh(armGeo, armMat);
+            rightArmMesh.position.y = -0.5;
+            rightArmMesh.castShadow = true;
+            rightArmGroup.add(rightArmMesh);
+            playerGroup.add(rightArmGroup);
+            player.rightArm = rightArmGroup;
+
+            const legGeo = new THREE.BoxGeometry(0.5, 1.2, 0.5);
+            const leftLegGroup = new THREE.Group();
+            leftLegGroup.position.set(-0.32, 0.8, 0);
+            const leftLegMesh = new THREE.Mesh(legGeo, legMat);
+            leftLegMesh.position.y = -0.5;
+            leftLegMesh.castShadow = true;
+            leftLegGroup.add(leftLegMesh);
+            playerGroup.add(leftLegGroup);
+            player.leftLeg = leftLegGroup;
+
+            const rightLegGroup = new THREE.Group();
+            rightLegGroup.position.set(0.32, 0.8, 0);
+            const rightLegMesh = new THREE.Mesh(legGeo, legMat);
+            rightLegMesh.position.y = -0.5;
+            rightLegMesh.castShadow = true;
+            rightLegGroup.add(rightLegMesh);
+            playerGroup.add(rightLegGroup);
+            player.rightLeg = rightLegGroup;
+
+            scene.add(playerGroup);
+            player.mesh = playerGroup;
+            player.position = playerGroup.position;
+
+            camera.position.set(0, 12, 16);
+            camera.lookAt(player.position);
+        }
+
+        function createRumahGadang() {
+            const group = new THREE.Group();
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.8 });
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(12, 3, 8), woodMat);
+            base.position.y = 1.5;
+            base.castShadow = true;
+            group.add(base);
+
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(11, 4, 7), new THREE.MeshStandardMaterial({ color: 0xb45309 }));
+            wall.position.y = 5;
+            wall.castShadow = true;
+            group.add(wall);
+
+            for (let side of [-1, 1]) {
+                const horn = new THREE.Mesh(new THREE.ConeGeometry(2.5, 8, 4), roofMat);
+                horn.rotation.z = side * -0.6;
+                horn.position.set(side * 6, 9.5, 0);
+                horn.castShadow = true;
+                group.add(horn);
+            }
+
+            const centerRoof = new THREE.Mesh(new THREE.ConeGeometry(3, 6, 4), roofMat);
+            centerRoof.position.set(0, 9.5, 0);
+            centerRoof.castShadow = true;
+            group.add(centerRoof);
+
+            return group;
+        }
+
+        function createRumahJoglo() {
+            const group = new THREE.Group();
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 });
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.5 });
+
+            const floor = new THREE.Mesh(new THREE.BoxGeometry(10, 0.6, 10), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
+            floor.position.y = 0.3;
+            group.add(floor);
+
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(8, 3.5, 8), woodMat);
+            wall.position.y = 2.1;
+            wall.castShadow = true;
+            group.add(wall);
+
+            const roofBase = new THREE.Mesh(new THREE.ConeGeometry(7, 3, 4), roofMat);
+            roofBase.rotation.y = Math.PI / 4;
+            roofBase.position.y = 5.2;
+            roofBase.castShadow = true;
+            group.add(roofBase);
+
+            const roofTop = new THREE.Mesh(new THREE.ConeGeometry(4, 2.5, 4), roofMat);
+            roofTop.rotation.y = Math.PI / 4;
+            roofTop.position.y = 7.0;
+            roofTop.castShadow = true;
+            group.add(roofTop);
+
+            return group;
+        }
+
+        function createRumahTongkonan() {
+            const group = new THREE.Group();
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.8 });
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+            const redMat = new THREE.MeshStandardMaterial({ color: 0x991b1b });
+
+            for (let x of [-3, 3]) {
+                for (let z of [-3, 3]) {
+                    const stilt = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 3, 8), woodMat);
+                    stilt.position.set(x, 1.5, z);
+                    stilt.castShadow = true;
+                    group.add(stilt);
+                }
+            }
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(7, 4, 7), redMat);
+            body.position.y = 4.8;
+            body.castShadow = true;
+            group.add(body);
+
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(5, 12, 4), roofMat);
+            roof.rotation.x = Math.PI / 2;
+            roof.scale.set(0.8, 1.4, 0.6);
+            roof.position.y = 9.0;
+            roof.castShadow = true;
+            group.add(roof);
+
+            return group;
+        }
+
+        function createRumahHonai() {
+            const group = new THREE.Group();
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+            const thatchMat = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 1.0 });
+
+            const wall = new THREE.Mesh(new THREE.CylinderGeometry(4, 4.2, 3.5, 16), wallMat);
+            wall.position.y = 1.75;
+            wall.castShadow = true;
+            group.add(wall);
+
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(5.2, 4.5, 16), thatchMat);
+            roof.position.y = 5.2;
+            roof.castShadow = true;
+            group.add(roof);
+
+            return group;
+        }
+
+        function createVoxelBeastMesh(type, mainColorHex) {
+            const beastGroup = new THREE.Group();
+            beastGroup.userData.legs = [];
+
+            const mainMat = new THREE.MeshStandardMaterial({ color: mainColorHex, roughness: 0.4 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+            const studMat = new THREE.MeshStandardMaterial({ color: mainColorHex, roughness: 0.3 });
+
+            const studGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.1, 8);
+
+            if (type === 'blue_horse' || type === 'pink_pig') {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 2.2), mainMat);
+                body.position.y = 1.4;
+                body.castShadow = true;
+                beastGroup.add(body);
+
+                for (let x of [-0.4, 0.4]) {
+                    for (let z of [-0.6, 0.6]) {
+                        const stud = new THREE.Mesh(studGeo, studMat);
+                        stud.position.set(x, 2.05, z);
+                        beastGroup.add(stud);
+                    }
+                }
+
+                const head = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.9, 1.1), mainMat);
+                head.position.set(0, 2.2, -1.0);
+                head.castShadow = true;
+                beastGroup.add(head);
+
+                const snout = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.5), mainMat);
+                snout.position.set(0, 2.0, -1.6);
+                beastGroup.add(snout);
+
+                const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), darkMat);
+                eyeL.position.set(-0.51, 2.3, -1.2);
+                const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), darkMat);
+                eyeR.position.set(0.51, 2.3, -1.2);
+                beastGroup.add(eyeL);
+                beastGroup.add(eyeR);
+
+                const legGeo = new THREE.BoxGeometry(0.4, 1.0, 0.4);
+                for (let lx of [-0.6, 0.6]) {
+                    for (let lz of [-0.7, 0.7]) {
+                        const pivot = new THREE.Group();
+                        pivot.position.set(lx, 1.0, lz);
+                        const leg = new THREE.Mesh(legGeo, mainMat);
+                        leg.position.set(0, -0.5, 0);
+                        leg.castShadow = true;
+                        pivot.add(leg);
+                        beastGroup.add(pivot);
+                        beastGroup.userData.legs.push({ pivot, phase: (lx * lz > 0 ? 0 : Math.PI) });
+                    }
+                }
+            } else if (type === 'tiger' || type === 'boar' || type === 'anoa') {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 2.5), mainMat);
+                body.position.y = 1.2;
+                body.castShadow = true;
+                beastGroup.add(body);
+
+                const head = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 1.1), mainMat);
+                head.position.set(0, 1.8, -1.2);
+                head.castShadow = true;
+                beastGroup.add(head);
+
+                const snout = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.6), darkMat);
+                snout.position.set(0, 1.6, -1.8);
+                beastGroup.add(snout);
+
+                if (type === 'boar' || type === 'anoa') {
+                    for (let hx of [-0.3, 0.3]) {
+                        const horn = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.6, 4), whiteMat);
+                        horn.rotation.x = -Math.PI / 4;
+                        horn.position.set(hx, 2.2, -1.3);
+                        beastGroup.add(horn);
+                    }
+                }
+
+                const legGeo = new THREE.BoxGeometry(0.38, 0.9, 0.38);
+                for (let lx of [-0.55, 0.55]) {
+                    for (let lz of [-0.8, 0.8]) {
+                        const pivot = new THREE.Group();
+                        pivot.position.set(lx, 0.9, lz);
+                        const leg = new THREE.Mesh(legGeo, mainMat);
+                        leg.position.set(0, -0.45, 0);
+                        leg.castShadow = true;
+                        pivot.add(leg);
+                        beastGroup.add(pivot);
+                        beastGroup.userData.legs.push({ pivot, phase: (lx * lz > 0 ? 0 : Math.PI) });
+                    }
+                }
+            } else {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.7, 2.8), mainMat);
+                body.position.y = 0.6;
+                body.castShadow = true;
+                beastGroup.add(body);
+
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 1.2), mainMat);
+                head.position.set(0, 0.8, -1.7);
+                head.castShadow = true;
+                beastGroup.add(head);
+
+                const tail = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 2.0), mainMat);
+                tail.position.set(0, 0.5, 2.0);
+                beastGroup.add(tail);
+
+                const legGeo = new THREE.BoxGeometry(0.4, 0.5, 0.4);
+                for (let lx of [-0.7, 0.7]) {
+                    for (let lz of [-0.8, 0.8]) {
+                        const pivot = new THREE.Group();
+                        pivot.position.set(lx, 0.5, lz);
+                        const leg = new THREE.Mesh(legGeo, mainMat);
+                        leg.position.set(0, -0.25, 0);
+                        leg.castShadow = true;
+                        pivot.add(leg);
+                        beastGroup.add(pivot);
+                        beastGroup.userData.legs.push({ pivot, phase: (lx * lz > 0 ? 0 : Math.PI) });
+                    }
+                }
+            }
+
+            return beastGroup;
+        }
+
+        function generateGrassCanvasTexture(baseColorHex, accentColorRgba) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = baseColorHex;
+            ctx.fillRect(0, 0, 512, 512);
+
+            for (let i = 0; i < 180; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const rad = 25 + Math.random() * 60;
+                const grad = ctx.createRadialGradient(x, y, 0, x, y, rad);
+                grad.addColorStop(0, accentColorRgba);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(x, y, rad, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            for (let i = 0; i < 30000; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const len = 3 + Math.random() * 9;
+                const angle = (Math.random() - 0.5) * 1.5 - Math.PI / 2;
+                const isBright = Math.random() > 0.45;
+                ctx.strokeStyle = isBright ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.25)';
+                ctx.lineWidth = 1 + Math.random() * 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+                ctx.stroke();
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(28, 28);
+            return texture;
+        }
+
+        function generateGrassBumpTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#808080';
+            ctx.fillRect(0, 0, 256, 256);
+
+            for (let i = 0; i < 12000; i++) {
+                const x = Math.random() * 256;
+                const y = Math.random() * 256;
+                const val = Math.floor(Math.random() * 255);
+                ctx.fillStyle = `rgb(${val},${val},${val})`;
+                ctx.fillRect(x, y, 2, 3);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(28, 28);
+            return texture;
+        }
+
+        function buildGrassTuftsForLevel(lvl) {
+            const tuftGeo = new THREE.ConeGeometry(0.5, 0.9, 3);
+            tuftGeo.translate(0, 0.45, 0);
+            const tuftMat = new THREE.MeshStandardMaterial({
+                color: lvl.groundColor,
+                roughness: 0.8,
+                flatShading: true
+            });
+
+            const count = 450;
+            const instancedMesh = new THREE.InstancedMesh(tuftGeo, tuftMat, count);
+            const dummy = new THREE.Object3D();
+
+            for (let i = 0; i < count; i++) {
+                const x = (Math.random() - 0.5) * 230;
+                const z = (Math.random() - 0.5) * 230;
+                const scaleY = 0.8 + Math.random() * 0.9;
+                const scaleXZ = 0.7 + Math.random() * 0.6;
+
+                dummy.position.set(x, 0, z);
+                dummy.rotation.y = Math.random() * Math.PI * 2;
+                dummy.scale.set(scaleXZ, scaleY, scaleXZ);
+                dummy.updateMatrix();
+
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+            }
+            instancedMesh.receiveShadow = true;
+            instancedMesh.castShadow = true;
+            levelObjectsGroup.add(instancedMesh);
+        }
+
+        function loadLevel(levelIndex) {
+            currentLevelIndex = levelIndex;
+            if (currentLevelIndex > maxUnlockedLevelIndex) {
+                maxUnlockedLevelIndex = currentLevelIndex;
+            }
+            const lvl = LEVEL_CONFIGS[currentLevelIndex];
+
+            while (levelObjectsGroup.children.length > 0) {
+                levelObjectsGroup.remove(levelObjectsGroup.children[0]);
+            }
+            coins = [];
+            enemies = [];
+            colliders = [];
+            player.coinsCollected = 0;
+            beastsKilledInLevel = 0;
+
+            document.getElementById('current-level-text').innerText = `Level ${lvl.level} - ${lvl.name.split('-')[0].trim()}`;
+            document.getElementById('coins-count').innerText = 0;
+            document.getElementById('total-coins').innerText = lvl.quizzes.length;
+            document.getElementById('beasts-killed-count').innerText = 0;
+            document.getElementById('target-beasts').innerText = lvl.beastTarget;
+
+            scene.background = new THREE.Color(lvl.skyColor);
+            scene.fog = new THREE.FogExp2(lvl.fogColor, 0.008);
+
+            const grassMap = generateGrassCanvasTexture('#' + lvl.groundColor.toString(16).padStart(6, '0'), lvl.grassAccent);
+            const grassBump = generateGrassBumpTexture();
+
+            const groundGeo = new THREE.PlaneGeometry(280, 280, 48, 48);
+            const groundMat = new THREE.MeshStandardMaterial({ 
+                color: lvl.groundColor, 
+                map: grassMap,
+                bumpMap: grassBump,
+                bumpScale: 0.22,
+                roughness: 0.85,
+                metalness: 0.05
+            });
+            const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+            groundMesh.rotation.x = -Math.PI / 2;
+            groundMesh.receiveShadow = true;
+            levelObjectsGroup.add(groundMesh);
+
+            const mountainGeo = new THREE.ConeGeometry(25, 45, 7);
+            const mountainMat = new THREE.MeshStandardMaterial({ color: lvl.mountainColor, roughness: 0.9 });
+            for (let i = 0; i < 32; i++) {
+                const angle = (i / 32) * Math.PI * 2;
+                const m = new THREE.Mesh(mountainGeo, mountainMat);
+                const scaleY = 0.8 + Math.random() * 0.7;
+                m.scale.set(1 + Math.random() * 0.4, scaleY, 1 + Math.random() * 0.4);
+                m.position.set(Math.cos(angle) * 135, (45 * scaleY) / 2 - 2, Math.sin(angle) * 135);
+                m.castShadow = true;
+                levelObjectsGroup.add(m);
+            }
+
+            buildTreesForLevel(lvl);
+            buildArchitectureForLevel(lvl);
+            buildGrassTuftsForLevel(lvl);
+            spawnCoinsForLevel(lvl);
+            spawnVoxelBeastsForLevel(lvl);
+
+            player.position.set(0, 0, 0);
+        }
+
+        function buildTreesForLevel(lvl) {
+            const trunkGeo = new THREE.CylinderGeometry(0.5, 0.8, 4, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+            const leafGeo = new THREE.DodecahedronGeometry(2.5, 1);
+            const leafMat = new THREE.MeshStandardMaterial({ color: lvl.groundColor, roughness: 0.7, flatShading: true });
+
+            for (let i = 0; i < 220; i++) {
+                const x = (Math.random() - 0.5) * 240;
+                const z = (Math.random() - 0.5) * 240;
+
+                if (Math.abs(x) < 20 && Math.abs(z) < 20) continue;
+
+                const treeGroup = new THREE.Group();
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.y = 2;
+                trunk.castShadow = true;
+                treeGroup.add(trunk);
+
+                const scale = 0.8 + Math.random() * 0.6;
+                for (let j = 0; j < 3; j++) {
+                    const foliage = new THREE.Mesh(leafGeo, leafMat);
+                    foliage.position.y = 3.8 + j * 1.5;
+                    foliage.scale.set((1 - j * 0.2) * scale, (1 - j * 0.2) * scale, (1 - j * 0.2) * scale);
+                    foliage.castShadow = true;
+                    treeGroup.add(foliage);
+                }
+
+                treeGroup.position.set(x, 0, z);
+                levelObjectsGroup.add(treeGroup);
+                colliders.push({ x: x, z: z, radius: 1.5 * scale });
+            }
+        }
+
+        function buildArchitectureForLevel(lvl) {
+            let createHouseFn;
+            if (lvl.regionKey === 'sumatra') createHouseFn = createRumahGadang;
+            else if (lvl.regionKey === 'jawa') createHouseFn = createRumahJoglo;
+            else if (lvl.regionKey === 'kalimantan') createHouseFn = createRumahTongkonan;
+            else if (lvl.regionKey === 'sulawesi') createHouseFn = createRumahTongkonan;
+            else createHouseFn = createRumahHonai;
+
+            const villagePositions = [
+                { x: -35, z: -35 },
+                { x: 35, z: 35 },
+                { x: -45, z: 25 },
+                { x: 45, z: -30 },
+                { x: -15, z: -60 },
+                { x: 20, z: 60 },
+                { x: 60, z: 15 }
+            ];
+
+            villagePositions.forEach(pos => {
+                const houseMesh = createHouseFn();
+                houseMesh.position.set(pos.x, 0, pos.z);
+                houseMesh.rotation.y = Math.random() * Math.PI * 2;
+                levelObjectsGroup.add(houseMesh);
+                colliders.push({ x: pos.x, z: pos.z, radius: 7 });
+            });
+        }
+
+        function spawnVoxelBeastsForLevel(lvl) {
+            const count = lvl.enemyCount;
+            for (let i = 0; i < count; i++) {
+                const bConfig = lvl.beastTypes[i % lvl.beastTypes.length];
+                const beastMesh = createVoxelBeastMesh(bConfig.type, bConfig.color);
+
+                const angle = (i / count) * Math.PI * 2 + Math.random() * 0.3;
+                const dist = 25 + Math.random() * 85;
+                beastMesh.position.set(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+
+                beastMesh.lookAt(0, 0, 0);
+                beastMesh.rotateY(Math.PI);
+
+                levelObjectsGroup.add(beastMesh);
+                enemies.push({
+                    mesh: beastMesh,
+                    name: bConfig.name,
+                    health: lvl.enemyHealth,
+                    maxHealth: lvl.enemyHealth,
+                    speed: lvl.enemySpeed,
+                    damage: lvl.enemyDamage,
+                    alive: true,
+                    walkCycle: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        function spawnCoinsForLevel(lvl) {
+            const coinGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.2, 16);
+            const coinMat = new THREE.MeshStandardMaterial({ 
+                color: 0xf59e0b, 
+                metalness: 0.8, 
+                roughness: 0.2, 
+                emissive: 0x78350f 
+            });
+
+            for (let i = 0; i < lvl.quizzes.length; i++) {
+                const coinMesh = new THREE.Mesh(coinGeo, coinMat);
+                coinMesh.rotation.x = Math.PI / 2;
+
+                const angle = (i / lvl.quizzes.length) * Math.PI * 2;
+                const dist = 22 + i * 18;
+                coinMesh.position.set(Math.cos(angle) * dist, 1.2, Math.sin(angle) * dist);
+                coinMesh.castShadow = true;
+
+                levelObjectsGroup.add(coinMesh);
+                coins.push({
+                    mesh: coinMesh,
+                    collected: false,
+                    quizData: lvl.quizzes[i]
+                });
+            }
+        }
+
+        function handleKey(e, isDown) {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || k === 'arrowup') keys.w = isDown;
+            if (k === 'a' || k === 'arrowleft') keys.a = isDown;
+            if (k === 's' || k === 'arrowdown') keys.s = isDown;
+            if (k === 'd' || k === 'arrowright') keys.d = isDown;
+            if (e.code === 'Space') keys.space = isDown;
+        }
+
+        function onMouseMove(e) {
+            const crosshair = document.getElementById('crosshair');
+            crosshair.style.left = `${e.clientX}px`;
+            crosshair.style.top = `${e.clientY}px`;
+
+            mousePos.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mousePos.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mousePos, camera);
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            raycaster.ray.intersectPlane(plane, aimTargetPoint);
+        }
+
+        function onPlayerThrow(e) {
+            if (isGamePaused) return;
+            sound.init();
+
+            player.isThrowing = true;
+            player.throwAnimTimer = 0;
+            player.throwSide = player.throwSide === 0 ? 1 : 0;
+
+            const projGeo = new THREE.SphereGeometry(0.35, 12, 12);
+            const projMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, roughness: 0.2 });
+            const projectile = new THREE.Mesh(projGeo, projMat);
+
+            projectile.position.copy(player.position).add(new THREE.Vector3(0, 1.8, 0));
+
+            const dir = aimTargetPoint.clone().sub(projectile.position).normalize();
+            dir.y = 0;
+
+            projectiles.push({
+                mesh: projectile,
+                direction: dir,
+                life: 75
+            });
+
+            scene.add(projectile);
+        }
+
+        function createHitEffect(pos) {
+            const particleCount = 10;
+            const geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+
+            for (let i = 0; i < particleCount; i++) {
+                const p = new THREE.Mesh(geo, mat);
+                p.position.copy(pos);
+                scene.add(p);
+
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 0.1 + Math.random() * 0.2;
+                hitParticles.push({
+                    mesh: p,
+                    velocity: new THREE.Vector3(Math.cos(angle) * speed, 0.1 + Math.random() * 0.2, Math.sin(angle) * speed),
+                    life: 25
+                });
+            }
+        }
+
+        function updatePlayerMovement() {
+            if (isGamePaused) return;
+
+            if (keys.space && !player.isJumping) {
+                player.vy = player.jumpForce;
+                player.isJumping = true;
+            }
+
+            if (player.isJumping) {
+                player.position.y += player.vy;
+                player.vy -= player.gravity;
+                if (player.position.y <= 0) {
+                    player.position.y = 0;
+                    player.vy = 0;
+                    player.isJumping = false;
+                }
+            }
+
+            const moveDir = new THREE.Vector3();
+            if (keys.w) moveDir.z -= 1;
+            if (keys.s) moveDir.z += 1;
+            if (keys.a) moveDir.x -= 1;
+            if (keys.d) moveDir.x += 1;
+
+            let isMoving = moveDir.length() > 0;
+            if (isMoving) {
+                moveDir.normalize();
+                const nextX = player.position.x + moveDir.x * player.speed;
+                const nextZ = player.position.z + moveDir.z * player.speed;
+
+                let canMove = true;
+                for (let c of colliders) {
+                    const dist = Math.hypot(nextX - c.x, nextZ - c.z);
+                    if (dist < c.radius) {
+                        canMove = false;
+                        break;
+                    }
+                }
+
+                if (Math.abs(nextX) < 130 && Math.abs(nextZ) < 130 && canMove) {
+                    player.position.x = nextX;
+                    player.position.z = nextZ;
+                }
+
+                player.walkCycle += 0.22;
+                const swing = Math.sin(player.walkCycle) * 0.6;
+                if (player.leftLeg) player.leftLeg.rotation.x = swing;
+                if (player.rightLeg) player.rightLeg.rotation.x = -swing;
+                if (player.leftArm && !player.isThrowing) player.leftArm.rotation.x = -swing;
+                if (player.rightArm && !player.isThrowing) player.rightArm.rotation.x = swing;
+            } else {
+                if (player.leftLeg) player.leftLeg.rotation.x = 0;
+                if (player.rightLeg) player.rightLeg.rotation.x = 0;
+                if (player.leftArm && !player.isThrowing) player.leftArm.rotation.x = 0;
+                if (player.rightArm && !player.isThrowing) player.rightArm.rotation.x = 0;
+            }
+
+            if (aimTargetPoint) {
+                const targetAngle = Math.atan2(player.position.x - aimTargetPoint.x, player.position.z - aimTargetPoint.z);
+                let diff = targetAngle - player.mesh.rotation.y;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                player.mesh.rotation.y += diff * 0.15;
+            }
+
+            if (player.isThrowing) {
+                player.throwAnimTimer += 0.25;
+                const armToAnimate = player.throwSide === 0 ? player.rightArm : player.leftArm;
+                const idleArm = player.throwSide === 0 ? player.leftArm : player.rightArm;
+
+                if (armToAnimate) {
+                    armToAnimate.rotation.x = Math.cos(player.throwAnimTimer) * 1.8;
+                }
+                if (idleArm && !isMoving) {
+                    idleArm.rotation.x = 0;
+                }
+
+                if (player.throwAnimTimer >= Math.PI) {
+                    player.isThrowing = false;
+                    if (player.rightArm) player.rightArm.rotation.x = 0;
+                    if (player.leftArm) player.leftArm.rotation.x = 0;
+                }
+            }
+
+            camera.position.x = player.position.x;
+            camera.position.z = player.position.z + 18;
+            camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
+        }
+
+        function updateGameObjects() {
+            if (isGamePaused) return;
+
+            coins.forEach(c => {
+                if (!c.collected) {
+                    c.mesh.rotation.z += 0.03;
+                    c.mesh.position.y = 1.2 + Math.sin(Date.now() * 0.005) * 0.2;
+
+                    if (player.position.distanceTo(c.mesh.position) < 2.2) {
+                        currentQuizCoin = c;
+                        sound.playCoin();
+                        triggerQuizModal(c);
+                    }
+                }
+            });
+
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.mesh.position.addScaledVector(p.direction, 0.85);
+                p.mesh.rotation.x += 0.1;
+                p.mesh.rotation.y += 0.1;
+                p.life--;
+
+                enemies.forEach(e => {
+                    if (e.alive && p.mesh.position.distanceTo(e.mesh.position) < 2.2) {
+                        e.health -= 25;
+                        sound.playHit();
+                        createHitEffect(p.mesh.position.clone());
+                        p.life = 0;
+
+                        if (e.health <= 0) {
+                            e.alive = false;
+                            e.mesh.visible = false;
+                            player.score += 50;
+                            beastsKilledInLevel++;
+                            
+                            player.health = Math.min(100, player.health + 10);
+                            document.getElementById('health-bar').style.width = `${player.health}%`;
+                            document.getElementById('health-text').innerText = `${Math.ceil(player.health)} / 100`;
+
+                            document.getElementById('score-text').innerText = player.score;
+                            document.getElementById('beasts-killed-count').innerText = beastsKilledInLevel;
+
+                            checkLevelCompletion();
+                        }
+                    }
+                });
+
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            for (let i = hitParticles.length - 1; i >= 0; i--) {
+                const hp = hitParticles[i];
+                hp.mesh.position.add(hp.velocity);
+                hp.life--;
+                if (hp.life <= 0) {
+                    scene.remove(hp.mesh);
+                    hitParticles.splice(i, 1);
+                }
+            }
+
+            enemies.forEach(e => {
+                if (e.alive) {
+                    const distToPlayer = e.mesh.position.distanceTo(player.position);
+
+                    if (distToPlayer < 65) {
+                        const dir = player.position.clone().sub(e.mesh.position).normalize();
+                        e.mesh.position.addScaledVector(dir, e.speed);
+
+                        e.mesh.lookAt(player.position.x, e.mesh.position.y, player.position.z);
+                        e.mesh.rotateY(Math.PI);
+
+                        e.walkCycle = (e.walkCycle || 0) + 0.24;
+                        if (e.mesh.userData && e.mesh.userData.legs && e.mesh.userData.legs.length > 0) {
+                            e.mesh.userData.legs.forEach(legItem => {
+                                legItem.pivot.rotation.x = Math.sin(e.walkCycle + legItem.phase) * 0.5;
+                            });
+                        }
+
+                        if (!player.isInvulnerable && distToPlayer < 2.0) {
+                            player.health = Math.max(0, player.health - e.damage);
+                            document.getElementById('health-bar').style.width = `${player.health}%`;
+                            document.getElementById('health-text').innerText = `${Math.ceil(player.health)} / 100`;
+
+                            if (player.health <= 0) {
+                                if (player.continuesRemaining > 0) {
+                                    player.continuesRemaining--;
+                                    player.health = 100;
+                                    player.isInvulnerable = true;
+                                    player.invulnerableTimer = 180;
+                                    document.getElementById('health-bar').style.width = `100%`;
+                                    document.getElementById('health-text').innerText = `100 / 100`;
+                                    document.getElementById('lives-text').innerText = player.continuesRemaining;
+                                } else {
+                                    triggerGameOverMenu();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (player.isInvulnerable) {
+                player.invulnerableTimer--;
+                if (player.mesh) {
+                    player.mesh.visible = Math.floor(Date.now() / 100) % 2 === 0;
+                }
+                if (player.invulnerableTimer <= 0) {
+                    player.isInvulnerable = false;
+                    if (player.mesh) player.mesh.visible = true;
+                }
+            }
+
+            renderMinimap();
+        }
+
+        function renderMinimap() {
+            const canvas = document.getElementById('minimap');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const mapSize = 280;
+            const scale = canvas.width / mapSize;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            ctx.fillStyle = '#0284c7';
+            ctx.beginPath();
+            ctx.arc(centerX + player.position.x * scale, centerY + player.position.z * scale, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#f59e0b';
+            coins.forEach(c => {
+                if (!c.collected) {
+                    ctx.beginPath();
+                    ctx.arc(centerX + c.mesh.position.x * scale, centerY + c.mesh.position.z * scale, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            ctx.fillStyle = '#ef4444';
+            enemies.forEach(e => {
+                if (e.alive) {
+                    ctx.beginPath();
+                    ctx.arc(centerX + e.mesh.position.x * scale, centerY + e.mesh.position.z * scale, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+
+        function triggerQuizModal(coinObj) {
+            isGamePaused = true;
+            const q = coinObj.quizData;
+
+            document.getElementById('quiz-region-badge').innerText = `Wilayah ${q.region}`;
+            document.getElementById('quiz-question').innerText = q.question;
+
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            document.getElementById('quiz-feedback').classList.add('hidden');
+            document.getElementById('btn-quiz-continue').classList.add('hidden');
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-all flex items-center justify-between group';
+                btn.innerHTML = `<span>${opt}</span> <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity"></i>`;
+                btn.onclick = () => checkQuizAnswer(idx, q.correct, q.explanation);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('quiz-modal').classList.remove('hidden');
+        }
+
+        function checkQuizAnswer(selectedIdx, correctIdx, explanation) {
+            const options = document.getElementById('quiz-options').children;
+            for (let i = 0; i < options.length; i++) {
+                options[i].disabled = true;
+                if (i === correctIdx) {
+                    options[i].className = 'w-full text-left p-3.5 rounded-xl bg-emerald-600/30 text-emerald-300 border border-emerald-500 text-xs font-bold';
+                } else if (i === selectedIdx) {
+                    options[i].className = 'w-full text-left p-3.5 rounded-xl bg-red-600/30 text-red-300 border border-red-500 text-xs font-bold';
+                }
+            }
+
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.remove('hidden');
+
+            if (selectedIdx === correctIdx) {
+                sound.playQuizCorrect();
+                player.score += 100;
+                player.coinsCollected++;
+                player.health = Math.min(100, player.health + 15);
+
+                if (currentQuizCoin) {
+                    currentQuizCoin.collected = true;
+                    currentQuizCoin.mesh.visible = false;
+                }
+
+                feedback.className = 'rounded-xl p-3.5 mb-4 text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                feedback.innerHTML = `<div class="font-bold mb-1"><i class="fa-solid fa-circle-check mr-1"></i> Jawaban Benar! (+100 Skor)</div>${explanation}`;
+            } else {
+                sound.playQuizWrong();
+                relocateCoinToFurthestPoint(currentQuizCoin);
+
+                feedback.className = 'rounded-xl p-3.5 mb-4 text-xs font-semibold bg-red-500/20 text-red-300 border border-red-500/40';
+                feedback.innerHTML = `<div class="font-bold mb-1 text-red-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Jawaban Kurang Tepat! Koin Berpindah Tempat!</div><p class="mb-1 text-slate-300">Koin tidak didapatkan dan telah dipindahkan ke lokasi paling jauh di arena.</p><p class="italic text-slate-400">${explanation}</p>`;
+            }
+
+            document.getElementById('score-text').innerText = player.score;
+            document.getElementById('coins-count').innerText = player.coinsCollected;
+            document.getElementById('health-bar').style.width = `${player.health}%`;
+            document.getElementById('health-text').innerText = `${Math.ceil(player.health)} / 100`;
+
+            document.getElementById('btn-quiz-continue').classList.remove('hidden');
+        }
+
+        function relocateCoinToFurthestPoint(coinObj) {
+            if (!coinObj) return;
+
+            coinObj.collected = false;
+            coinObj.mesh.visible = true;
+
+            const candidateAngles = [0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4, Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4];
+            let maxDist = -1;
+            let bestPos = new THREE.Vector3(0, 1.2, 0);
+
+            candidateAngles.forEach(angle => {
+                const distRadius = 85 + Math.random() * 25;
+                const testPos = new THREE.Vector3(Math.cos(angle) * distRadius, 1.2, Math.sin(angle) * distRadius);
+                const d = player.position.distanceTo(testPos);
+                if (d > maxDist) {
+                    maxDist = d;
+                    bestPos = testPos;
+                }
+            });
+
+            coinObj.mesh.position.copy(bestPos);
+        }
+
+        function checkLevelCompletion() {
+            const currentLvl = LEVEL_CONFIGS[currentLevelIndex];
+            const hasAllCoins = player.coinsCollected >= currentLvl.quizzes.length;
+            const hasKilledTargetBeasts = beastsKilledInLevel >= currentLvl.beastTarget;
+
+            if (hasAllCoins && hasKilledTargetBeasts) {
+                if (currentLevelIndex < LEVEL_CONFIGS.length - 1) {
+                    triggerLevelComplete();
+                } else {
+                    triggerEndGame(true);
+                }
+            }
+        }
+
+        document.getElementById('btn-quiz-continue').onclick = () => {
+            document.getElementById('quiz-modal').classList.add('hidden');
+            isGamePaused = false;
+            checkLevelCompletion();
+        };
+
+        function triggerLevelComplete() {
+            isGamePaused = true;
+            const currentLvl = LEVEL_CONFIGS[currentLevelIndex];
+            document.getElementById('level-complete-title').innerText = `${currentLvl.name.split('-')[0].trim()} Selesai!`;
+            document.getElementById('level-complete-desc').innerText = `Selamat! Anda berhasil mengumpulkan seluruh koin kebudayaan ${currentLvl.name} & membasmi minimal ${currentLvl.beastTarget} hewan buas! Siap menghadapi musuh yang lebih banyak & buas di level selanjutnya?`;
+            document.getElementById('level-complete-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-next-level').onclick = () => {
+            document.getElementById('level-complete-modal').classList.add('hidden');
+            loadLevel(currentLevelIndex + 1);
+            isGamePaused = false;
+        };
+
+        function setupMaterialModal() {
+            const modal = document.getElementById('material-modal');
+            const content = document.getElementById('material-content');
+            content.innerHTML = SUMMARY_DATA.sumatra;
+
+            document.getElementById('btn-open-material').onclick = () => {
+                isGamePaused = true;
+                modal.classList.remove('hidden');
+            };
+
+            document.getElementById('btn-close-material').onclick = () => {
+                modal.classList.add('hidden');
+                isGamePaused = false;
+            };
+
+            document.querySelectorAll('.material-tab').forEach(tab => {
+                tab.onclick = (e) => {
+                    document.querySelectorAll('.material-tab').forEach(t => {
+                        t.className = 'material-tab bg-slate-800 text-slate-300 hover:bg-slate-700 px-4 py-2 rounded-xl transition-all';
+                    });
+                    e.target.className = 'material-tab bg-amber-500 text-slate-950 px-4 py-2 rounded-xl transition-all font-bold';
+                    
+                    const target = e.target.getAttribute('data-target');
+                    content.innerHTML = SUMMARY_DATA[target] || SUMMARY_DATA.sumatra;
+                };
+            });
+        }
+
+        function triggerGameOverMenu() {
+            isGamePaused = true;
+            const container = document.getElementById('unlocked-levels-container');
+            container.innerHTML = '';
+
+            for (let i = 0; i <= maxUnlockedLevelIndex && i < LEVEL_CONFIGS.length; i++) {
+                const lvl = LEVEL_CONFIGS[i];
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-all flex items-center justify-between group';
+                btn.innerHTML = `<span><i class="fa-solid fa-map-pin text-amber-400 mr-2"></i> Level ${lvl.level} - ${lvl.name.split('-')[0].trim()}</span> <i class="fa-solid fa-play text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>`;
+                btn.onclick = () => {
+                    document.getElementById('game-over-modal').classList.add('hidden');
+                    loadLevel(i);
+                    player.health = 100;
+                    document.getElementById('health-bar').style.width = '100%';
+                    document.getElementById('health-text').innerText = '100 / 100';
+                    isGamePaused = false;
+                };
+                container.appendChild(btn);
+            }
+
+            document.getElementById('game-over-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-restart-current-level').onclick = () => {
+            document.getElementById('game-over-modal').classList.add('hidden');
+            loadLevel(currentLevelIndex);
+            player.health = 100;
+            player.continuesRemaining = 3;
+            document.getElementById('lives-text').innerText = '3';
+            document.getElementById('health-bar').style.width = '100%';
+            document.getElementById('health-text').innerText = '100 / 100';
+            isGamePaused = false;
+        };
+
+        document.getElementById('btn-gameover-home').onclick = () => {
+            document.getElementById('game-over-modal').classList.add('hidden');
+            document.getElementById('start-modal').classList.remove('hidden');
+            isGamePaused = true;
+        };
+
+        function triggerEndGame(isVictory) {
+            isGamePaused = true;
+            const endModal = document.getElementById('game-end-modal');
+            const iconBg = document.getElementById('end-icon-bg');
+            const icon = document.getElementById('end-icon');
+            const title = document.getElementById('end-title');
+            const msg = document.getElementById('end-message');
+
+            if (isVictory) {
+                iconBg.className = 'w-20 h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center mx-auto mb-4 text-emerald-400 text-4xl glow-pulse';
+                icon.className = 'fa-solid fa-trophy';
+                title.innerText = 'Selamat! Anda Telah Menyelesaikan Game!';
+                msg.innerText = 'Luar biasa! Anda telah menaklukkan seluruh 5 wilayah adat di Nusantara dan menguasai ensiklopedia kebudayaan Indonesia dengan gemilang.';
+            }
+
+            document.getElementById('end-coins').innerText = `${player.coinsCollected} / ${QUIZ_DATABASE.length}`;
+            document.getElementById('end-score').innerText = player.score;
+
+            const container = document.getElementById('end-unlocked-levels-container');
+            container.innerHTML = '';
+            for (let i = 0; i <= maxUnlockedLevelIndex && i < LEVEL_CONFIGS.length; i++) {
+                const lvl = LEVEL_CONFIGS[i];
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-all flex items-center justify-between group';
+                btn.innerHTML = `<span><i class="fa-solid fa-map-pin text-amber-400 mr-2"></i> Level ${lvl.level} - ${lvl.name.split('-')[0].trim()}</span> <i class="fa-solid fa-play text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>`;
+                btn.onclick = () => {
+                    document.getElementById('game-end-modal').classList.add('hidden');
+                    loadLevel(i);
+                    player.health = 100;
+                    document.getElementById('health-bar').style.width = '100%';
+                    document.getElementById('health-text').innerText = '100 / 100';
+                    isGamePaused = false;
+                };
+                container.appendChild(btn);
+            }
+
+            endModal.classList.remove('hidden');
+        }
+
+        document.getElementById('btn-restart-game').onclick = () => {
+            document.getElementById('game-end-modal').classList.add('hidden');
+            loadLevel(0);
+            maxUnlockedLevelIndex = 0;
+            player.health = 100;
+            player.score = 0;
+            player.continuesRemaining = 3;
+            document.getElementById('lives-text').innerText = '3';
+            document.getElementById('health-bar').style.width = '100%';
+            document.getElementById('health-text').innerText = '100 / 100';
+            document.getElementById('score-text').innerText = '0';
+            isGamePaused = false;
+        };
+
+        document.getElementById('btn-return-home').onclick = () => {
+            document.getElementById('game-end-modal').classList.add('hidden');
+            document.getElementById('start-modal').classList.remove('hidden');
+            isGamePaused = true;
+        };
+
+        function setupTouchControls() {
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            let joystickActive = false;
+
+            const handleTouch = (e) => {
+                if (!joystickActive) return;
+                const rect = zone.getBoundingClientRect();
+                const touch = e.touches[0];
+                const dx = touch.clientX - (rect.left + rect.width / 2);
+                const dy = touch.clientY - (rect.top + rect.height / 2);
+                const dist = Math.hypot(dx, dy);
+                const maxR = rect.width / 2;
+
+                const angle = Math.atan2(dy, dx);
+                const clampR = Math.min(dist, maxR);
+
+                knob.style.transform = `translate(${Math.cos(angle) * clampR}px, ${Math.sin(angle) * clampR}px)`;
+
+                keys.w = dy < -10;
+                keys.s = dy > 10;
+                keys.a = dx < -10;
+                keys.d = dx > 10;
+            };
+
+            zone.addEventListener('touchstart', (e) => {
+                joystickActive = true;
+                handleTouch(e);
+            });
+            zone.addEventListener('touchmove', handleTouch);
+            zone.addEventListener('touchend', () => {
+                joystickActive = false;
+                knob.style.transform = 'translate(0px, 0px)';
+                keys.w = keys.a = keys.s = keys.d = false;
+            });
+
+            document.getElementById('btn-mobile-jump').onclick = () => {
+                if (!player.isJumping) {
+                    player.vy = player.jumpForce;
+                    player.isJumping = true;
+                }
+            };
+
+            document.getElementById('btn-mobile-shoot').onclick = (e) => {
+                onPlayerThrow(e);
+            };
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            updatePlayerMovement();
+            updateGameObjects();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = () => {
+            initEngine();
+            setupMaterialModal();
+
+            const autoPlayBGM = () => {
+                sound.init();
+                sound.startBGM();
+                if (sound.bgmAudio && !sound.bgmAudio.paused) {
+                    document.removeEventListener('pointerdown', autoPlayBGM);
+                    document.removeEventListener('keydown', autoPlayBGM);
+                    document.removeEventListener('touchstart', autoPlayBGM);
+                }
+            };
+            document.addEventListener('pointerdown', autoPlayBGM);
+            document.addEventListener('keydown', autoPlayBGM);
+            document.addEventListener('touchstart', autoPlayBGM);
+
+            const btnToggleSound = document.getElementById('btn-toggle-sound');
+            if (btnToggleSound) {
+                btnToggleSound.onclick = (e) => {
+                    e.stopPropagation();
+                    sound.toggleSound();
+                };
+            }
+
+            const audioFileInput = document.getElementById('audio-file-input');
+            if (audioFileInput) {
+                audioFileInput.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const url = URL.createObjectURL(file);
+                        const bgm = document.getElementById('bgm-audio');
+                        if (bgm) {
+                            bgm.src = url;
+                            sound.init();
+                            sound.startBGM();
+                            sound.muted = false;
+                            const icon = document.getElementById('sound-icon');
+                            if (icon) icon.className = 'fa-solid fa-volume-high text-base text-amber-300';
+                        }
+                    }
+                };
+            }
+
+            document.getElementById('btn-start-game').onclick = (e) => {
+                e.stopPropagation();
+                sound.init();
+                sound.startBGM();
+                document.getElementById('start-modal').classList.add('hidden');
+                isGamePaused = false;
+            };
+
+            animate();
+        };
+    </script>
+</body>
+</html>
